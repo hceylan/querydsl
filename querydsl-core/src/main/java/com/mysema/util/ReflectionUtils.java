@@ -83,7 +83,7 @@ public final class ReflectionUtils {
     @Nullable
     public static Method getGetterOrNull(Class<?> beanClass, String name, Class<?> type){
         String methodName = ((type.equals(Boolean.class) || type.equals(boolean.class)) ? "is" : "get") + BeanUtils.capitalize(name);
-        while(beanClass != null && !beanClass.equals(Object.class)){
+        while (beanClass != null && !beanClass.equals(Object.class)) {
             try {
                 return beanClass.getDeclaredMethod(methodName);
             } catch (SecurityException e) { // skip
@@ -98,40 +98,50 @@ public final class ReflectionUtils {
     public static int getTypeParameterCount(java.lang.reflect.Type type){
         if (type instanceof ParameterizedType) {
             return ((ParameterizedType) type).getActualTypeArguments().length;
-        }else{
+        } else if (type instanceof TypeVariable) {
+            return getTypeParameterCount(((TypeVariable) type).getBounds()[0]);            
+        } else {
             return 0;
         }
     }
 
+    public static Class<?> getTypeParameterAsClass(java.lang.reflect.Type type, int index) {
+        Type parameter = getTypeParameter(type, index);
+        if (parameter != null) {
+            return asClass(parameter);
+        } else {
+            return null;
+        }
+    }
+    
     @Nullable
-    @SuppressWarnings("unchecked")
-    public static Class<?> getTypeParameter(java.lang.reflect.Type type, int index) {
+    public static Type getTypeParameter(java.lang.reflect.Type type, int index) {
         if (type instanceof ParameterizedType) {
-            ParameterizedType ptype = (ParameterizedType) type;
-            return getClass(ptype.getActualTypeArguments()[index]);
+            return ((ParameterizedType) type).getActualTypeArguments()[index];
+        } else if (type instanceof TypeVariable) {    
+            return getTypeParameter(((TypeVariable) type).getBounds()[0], index);
         } else {
             return null;    
         }        
     }
     
-    private static Class<?> getClass(Type type) {
+    private static Class<?> asClass(Type type) {
         if (type instanceof WildcardType) {
             WildcardType wildcardType = (WildcardType) type;
-            if (wildcardType.getUpperBounds()[0] instanceof Class){
+            if (wildcardType.getUpperBounds()[0] instanceof Class) {
                 return (Class<?>) wildcardType.getUpperBounds()[0];
-            }else if (wildcardType.getUpperBounds()[0] instanceof ParameterizedType){
+            } else if (wildcardType.getUpperBounds()[0] instanceof ParameterizedType) {
                 return (Class<?>) ((ParameterizedType) wildcardType.getUpperBounds()[0]).getRawType();
-            }else{
+            } else {
                 return Object.class;
             }
         } else if (type instanceof TypeVariable) {
-            //return (Class<?>) ((TypeVariable) type).getGenericDeclaration();
-            return getClass(((TypeVariable)type).getBounds()[0]);
+            return asClass(((TypeVariable)type).getBounds()[0]);
         } else if (type instanceof ParameterizedType) {
             return (Class<?>) ((ParameterizedType) type).getRawType();
         } else if (type instanceof GenericArrayType) {    
             Type component = ((GenericArrayType)type).getGenericComponentType();
-            return Array.newInstance(getClass(component), 0).getClass();
+            return Array.newInstance(asClass(component), 0).getClass();
         } else if (type instanceof Class) {
             return (Class<?>) type;
         } else {
